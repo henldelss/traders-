@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>First Traders - Retrait</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        body { margin: 0; background-color: #f8f8f8; color: #000; padding-bottom: 30px; }
+
+        .header { background: #00A651; /* Noir changé en Vert */ color: #fff; padding: 20px; display: flex; align-items: center; gap: 15px; }
+        .header a { color: #fff; text-decoration: none; }
+        
+        .container { padding: 20px; }
+
+        /* Carte Solde Disponible */
+        .balance-box {
+            background: #00A651; /* Noir changé en Vert */ color: #fff; padding: 25px; border-radius: 15px;
+            text-align: center; margin-bottom: 25px;
+        }
+        .balance-box span { font-size: 13px; opacity: 0.8; }
+        .balance-box h2 { margin: 10px 0 0; font-size: 28px; }
+
+        /* Formulaire de Retrait */
+        .form-card { background: #fff; padding: 20px; border-radius: 15px; border: 1px solid #eee; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; font-size: 13px; color: #666; margin-bottom: 8px; font-weight: bold; }
+        .input-wrapper { display: flex; align-items: center; border-bottom: 2px solid #00A651; padding: 5px 0; } /* Accentuation en Vert */
+        .input-wrapper span { font-size: 18px; font-weight: bold; margin-right: 10px; }
+        .input-wrapper input { border: none; outline: none; width: 100%; font-size: 20px; font-weight: bold; background: transparent; }
+
+        .info-calcul { font-size: 12px; color: #555; margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 8px; }
+        .info-calcul div { display: flex; justify-content: space-between; margin-bottom: 5px; }
+
+        .btn-withdraw {
+            background: #00A651; /* Noir changé en Vert */ color: #fff; width: 100%; padding: 16px; border-radius: 30px;
+            border: none; font-size: 16px; font-weight: bold; margin-top: 25px; cursor: pointer;
+        }
+        .btn-withdraw:disabled { background: #005c2c; cursor: not-allowed; }
+
+        /* Règles de retrait */
+        .rules-box { margin-top: 30px; padding: 15px; border-left: 3px solid #00A651; background: #fff; } /* Bordure en Vert */
+        .rules-box h3 { margin: 0 0 10px; font-size: 14px; text-transform: uppercase; color: #00A651; }
+        .rules-box ul { margin: 0; padding-left: 20px; font-size: 12px; color: #444; line-height: 1.8; }
+        
+        .error-overlay { color: #e74c3c; font-size: 11px; margin-top: 10px; display: none; text-align: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <a href="profil.html"><i class="fas fa-arrow-left"></i></a>
+        <h1 style="font-size: 18px; margin:0;">Retrait de fonds</h1>
+    </div>
+
+    <div class="container">
+        
+        <div class="balance-box">
+            <span>Solde Retirable</span>
+            <h2 id="displayBalance">0 FC</h2>
+        </div>
+
+        <div class="form-card">
+            <div class="input-group">
+                <label>Montant à retirer</label>
+                <div class="input-wrapper">
+                    <span>FC</span>
+                    <input type="number" id="withdrawAmount" placeholder="Min. 2500" oninput="calculateFees()">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Numéro de réception</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-mobile-alt" style="margin-right: 10px; color: #00A651;"></i>
+                    <input type="tel" id="receiverPhone" placeholder="Ex: 089xxxxxxx">
+                </div>
+            </div>
+
+            <div class="info-calcul">
+                <div><span>Frais de retrait (20%) :</span> <span id="feeLabel">0 FC</span></div>
+                <div><strong style="color:#000;">Montant net à recevoir :</strong> <strong id="netLabel" style="color:#00A651;">0 FC</strong></div>
+            </div>
+
+            <div id="productError" class="error-overlay">
+                <i class="fas fa-exclamation-circle"></i> Un investissement VIP actif est requis pour effectuer un retrait.
+            </div>
+
+            <button class="btn-withdraw" id="withdrawBtn" onclick="processWithdraw()">Soumettre le retrait</button>
+        </div>
+
+        <div class="rules-box">
+            <h3>Conditions de retrait</h3>
+            <ul>
+                <li><strong>Obligation :</strong> Sécurité activée — Seuls les membres ayant un investissement (VIP) actif ont droit au retrait.</li>
+                <li>Montant minimum de retrait : <strong>2,500 FC</strong>.</li>
+                <li>Frais de service : <strong>20%</strong> (Inclus maintenance de la plateforme).</li>
+                <li><strong>Limite :</strong> Un seul retrait autorisé par 24 heures.</li>
+                <li>Traitement : 4h à 24h.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // URL de la base de données mise à jour pour First Traders
+        const dbUrl = "https://first-traders-default-rtdb.firebaseio.com";
+        const userPhone = localStorage.getItem('userPhone');
+        let currentBalance = 0;
+        let userId = "";
+
+        if (!userPhone) { window.location.href = 'index.html'; }
+
+        async function loadUserData() {
+            const res = await fetch(`${dbUrl}/users.json`);
+            const users = await res.json();
+            for (let id in users) {
+                if (users[id].phone === userPhone) {
+                    userId = id;
+                    currentBalance = users[id].balance || 0;
+                    document.getElementById('displayBalance').innerText = currentBalance.toLocaleString() + " FC";
+                    break;
+                }
+            }
+        }
+
+        function calculateFees() {
+            const amount = parseFloat(document.getElementById('withdrawAmount').value) || 0;
+            const fee = amount * 0.20; 
+            const net = amount - fee;
+            document.getElementById('feeLabel').innerText = Math.floor(fee).toLocaleString() + " FC";
+            document.getElementById('netLabel').innerText = (net > 0 ? Math.floor(net) : 0).toLocaleString() + " FC";
+        }
+
+        async function processWithdraw() {
+            const amount = parseFloat(document.getElementById('withdrawAmount').value);
+            const receiver = document.getElementById('receiverPhone').value.trim();
+            const btn = document.getElementById('withdrawBtn');
+
+            // SÉCURITÉ : Vérification stricte si l'utilisateur possède au moins un produit acheté
+            const prodRes = await fetch(`${dbUrl}/purchases/${userId}.json`);
+            const hasVIP = await prodRes.json();
+            if (!hasVIP) {
+                document.getElementById('productError').style.display = 'block';
+                alert("Sécurité : Accès refusé. Vous devez détenir un investissement VIP actif pour effectuer des retraits.");
+                return;
+            }
+
+            // Validation de base
+            if (isNaN(amount) || amount < 2500) { alert("Minimum de retrait : 2,500 FC"); return; }
+            if (amount > currentBalance) { alert("Solde insuffisant."); return; }
+            if (receiver.length < 9) { alert("Numéro de réception invalide."); return; }
+
+            // Limite d'une transaction par jour
+            const lastWithdraw = localStorage.getItem('lastWithdrawDate');
+            const today = new Date().toDateString();
+            if (lastWithdraw === today) {
+                alert("Limite atteinte : Un seul retrait par jour est autorisé.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Traitement...";
+
+            try {
+                // Déduire le solde
+                const newBalance = currentBalance - amount;
+                await fetch(`${dbUrl}/users/${userId}.json`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ balance: newBalance })
+                });
+
+                // Enregistrer la demande dans l'arborescence
+                const request = {
+                    user: userPhone,
+                    amount: amount,
+                    netAmount: amount * 0.80, 
+                    receiver: receiver,
+                    date: new Date().toLocaleString(),
+                    status: "En attente"
+                };
+                await fetch(`${dbUrl}/retraits_demandes.json`, {
+                    method: 'POST',
+                    body: JSON.stringify(request)
+                });
+
+                localStorage.setItem('lastWithdrawDate', today);
+                alert("Demande envoyée avec succès ! Votre retrait sera validé après vérification manuelle (4h à 24h).");
+                window.location.href = 'profil.html';
+
+            } catch (e) {
+                alert("Erreur réseau. Veuillez réessayer.");
+                btn.disabled = false;
+                btn.innerText = "Soumettre le retrait";
+            }
+        }
+
+        loadUserData();
+    </script>
+</body>
+</html>
