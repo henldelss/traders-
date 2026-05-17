@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>First Traders - Centre des Tâches</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        body { margin: 0; background-color: #f8f8f8; color: #000; padding-bottom: 30px; }
+
+        .header { background: #00A651; /* Noir changé en Vert */ color: #fff; padding: 20px; display: flex; align-items: center; gap: 15px; }
+        .header a { color: #fff; text-decoration: none; }
+        
+        .container { padding: 20px; }
+
+        /* Bannière Points */
+        .points-banner {
+            background: #00A651; /* Noir changé en Vert */
+            color: #fff;
+            padding: 30px 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .points-banner i { font-size: 40px; margin-bottom: 10px; color: #FFD700; }
+        .points-banner h2 { margin: 5px 0; font-size: 24px; }
+        .points-banner p { font-size: 12px; opacity: 0.8; }
+
+        /* Liste des tâches */
+        .task-card {
+            background: #fff;
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #eee;
+            margin-bottom: 15px;
+        }
+        .task-info h3 { margin: 0 0 5px; font-size: 15px; }
+        .task-info p { margin: 0; font-size: 12px; color: #666; }
+        .task-reward { font-weight: bold; color: #00A651; font-size: 14px; margin-top: 5px; display: block; } /* Changé en Vert */
+
+        .btn-claim {
+            background: #00A651; /* Noir changé en Vert */
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn-claim:disabled {
+            background: #ccc;
+            color: #666;
+            cursor: not-allowed;
+        }
+        .btn-claim.done {
+            background: #27ae60;
+        }
+
+        /* Instructions */
+        .instructions {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #888;
+            padding: 15px;
+            background: #fff;
+            border-radius: 10px;
+            line-height: 1.5;
+            border-left: 3px solid #00A651;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <a href="dashboard.html"><i class="fas fa-arrow-left"></i></a>
+        <h1>Centre des Tâches</h1>
+    </div>
+
+    <div class="container">
+        
+        <div class="points-banner">
+            <i class="fas fa-coins"></i>
+            <p>Votre Solde Actuel</p>
+            <h2 id="totalBonus">0 FC</h2>
+        </div>
+
+        <div class="task-card">
+            <div class="task-info">
+                <h3>Connexion Quotidienne</h3>
+                <p>Réclamez votre bonus gratuit.</p>
+                <span class="task-reward">+ 100 FC</span>
+            </div>
+            <button class="btn-claim" id="dailyBtn" onclick="claimBonus()">Vérification...</button>
+        </div>
+
+        <div class="task-card" style="opacity: 0.6;">
+            <div class="task-info">
+                <h3>Inviter un ami</h3>
+                <p>Bientôt disponible...</p>
+                <span class="task-reward">+ 500 FC</span>
+            </div>
+            <button class="btn-claim" disabled>Lier</button>
+        </div>
+
+        <div class="instructions">
+            <strong style="color: #00A651;">Règles de récompense :</strong><br>
+            • Le bonus de connexion peut être réclamé une seule fois toutes les 24 heures.<br>
+            • Les fonds sont ajoutés directement à votre solde de revenus principal.<br>
+            • Revenez chaque jour pour accumuler vos gains gratuitement sur First Traders !
+        </div>
+
+    </div>
+
+    <script>
+        const dbUrl = "https://first-traders-default-rtdb.firebaseio.com";
+        const userPhone = localStorage.getItem('userPhone');
+        let userId = "";
+        let currentBalance = 0;
+
+        if (!userPhone) { window.location.href = 'index.html'; }
+
+        // Charger les informations de l'utilisateur et vérifier le statut du bouton
+        async function checkDailyStatus() {
+            try {
+                const res = await fetch(`${dbUrl}/users.json`);
+                const users = await res.json();
+                
+                for (let id in users) {
+                    if (users[id].phone === userPhone) {
+                        userId = id;
+                        currentBalance = users[id].balance || 0;
+                        document.getElementById('totalBonus').innerText = currentBalance.toLocaleString() + " FC";
+                        
+                        // Vérification de la dernière date de réclamation
+                        const lastClaim = users[id].lastDailyClaim;
+                        const today = new Date().toDateString(); // Donne "Sun May 17 2026"
+                        
+                        const btn = document.getElementById('dailyBtn');
+                        if (lastClaim === today) {
+                            btn.innerText = "Déjà récupéré ✓";
+                            btn.classList.add('done');
+                            btn.disabled = true;
+                        } else {
+                            btn.innerText = "Récupérer";
+                            btn.disabled = false;
+                        }
+                        break;
+                    }
+                }
+            } catch (error) {
+                console.error("Erreur de chargement des données", error);
+            }
+        }
+
+        // Action de réclamation du bonus
+        async function claimBonus() {
+            const btn = document.getElementById('dailyBtn');
+            if (!userId) return;
+
+            btn.disabled = true;
+            btn.innerText = "Traitement...";
+
+            const today = new Date().toDateString();
+
+            try {
+                // 1. Double sécurité : re-vérifier la date en direct sur Firebase
+                const verifyRes = await fetch(`${dbUrl}/users/${userId}.json`);
+                const userData = await verifyRes.json();
+
+                if (userData.lastDailyClaim === today) {
+                    alert("Désolé, vous avez déjà récupéré votre bonus aujourd'hui.");
+                    btn.innerText = "Déjà récupéré ✓";
+                    btn.classList.add('done');
+                    return;
+                }
+
+                // 2. Calculer le nouveau solde (+100 FC)
+                const newBalance = currentBalance + 100;
+
+                // 3. Mettre à jour Firebase (Nouveau solde + Enregistrement de la date)
+                await fetch(`${dbUrl}/users/${userId}.json`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        balance: newBalance,
+                        lastDailyClaim: today
+                    })
+                });
+
+                // 4. Mettre à jour l'interface visuelle
+                document.getElementById('totalBonus').innerText = newBalance.toLocaleString() + " FC";
+                btn.innerText = "Récupéré ✓";
+                btn.classList.add('done');
+                alert("Félicitations ! 100 FC ont été ajoutés à votre solde First Traders.");
+
+            } catch (error) {
+                alert("Erreur de réseau. Veuillez réessayer.");
+                btn.disabled = false;
+                btn.innerText = "Récupérer";
+            }
+        }
+
+        // Lancement de la vérification au chargement de la page
+        checkDailyStatus();
+    </script>
+
+</body>
+</html>
