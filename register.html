@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>First Traders - Inscription</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        body { margin: 0; background: #ffffff; height: 100vh; display: flex; flex-direction: column; align-items: center; padding-top: 60px; color: #00A651; }
+        .logo { font-size: 50px; font-weight: 900; color: #00A651; margin-bottom: 10px; letter-spacing: 3px; text-transform: uppercase; }
+        .subtitle { font-size: 14px; color: #666; margin-bottom: 40px; }
+        .container { width: 90%; max-width: 400px; }
+        .input-box { border: 1.5px solid #00A651; border-radius: 12px; display: flex; align-items: center; margin-bottom: 15px; padding: 12px 15px; color: #000; }
+        .prefix { font-weight: bold; margin-right: 10px; border-right: 1px solid #ddd; padding-right: 10px; display: flex; align-items: center; gap: 5px; color: #00A651; }
+        input { border: none; outline: none; width: 100%; font-size: 16px; background: transparent; color: #000; }
+        .btn-submit { background: #00A651; color: #fff; border: none; width: 100%; padding: 16px; border-radius: 30px; font-size: 18px; font-weight: bold; margin-top: 20px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,166,81,0.2); }
+        .link { margin-top: 25px; text-align: center; }
+        .link a { color: #666; text-decoration: none; font-size: 15px; }
+        .link a span { color: #00A651; font-weight: bold; text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <div class="logo">First Traders</div>
+    <div class="subtitle">Rejoignez l'élite de l'investissement</div>
+
+    <div class="container">
+        <form id="registerForm">
+            <div class="input-box">
+                <div class="prefix"><i class="fas fa-mobile-alt"></i> +243</div>
+                <input type="tel" id="phone" placeholder="Ex: 891234567" required>
+            </div>
+
+            <div class="input-box">
+                <i class="fas fa-lock" style="margin-right:15px; color: #00A651;"></i>
+                <input type="password" id="password" placeholder="Mot de passe (6 car. min)" required>
+            </div>
+
+            <div class="input-box">
+                <i class="fas fa-shield-alt" style="margin-right:15px; color: #00A651;"></i>
+                <input type="password" id="confirmPassword" placeholder="Confirmer le mot de passe" required>
+            </div>
+
+            <div class="input-box">
+                <i class="fas fa-user-plus" style="margin-right:15px; color: #00A651;"></i>
+                <input type="text" id="inviteCode" placeholder="Code d'invitation" required>
+            </div>
+
+            <button type="submit" class="btn-submit">S'inscrire</button>
+        </form>
+
+        <div class="link">
+            <a href="index.html">Déjà inscrit ? <span>Se connecter ></span></a>
+        </div>
+    </div>
+
+    <script>
+        const dbUrl = "https://first-traders-default-rtdb.firebaseio.com/users";
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const codeFromUrl = urlParams.get('ref'); 
+            if (codeFromUrl) {
+                document.getElementById('inviteCode').value = codeFromUrl;
+            }
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const phone = document.getElementById('phone').value.trim();
+            const password = document.getElementById('password').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            const invite = document.getElementById('inviteCode').value;
+            const fullPhone = "+243" + phone;
+
+            if (phone.length < 9 || phone.length > 10) {
+                alert("Numéro RDC invalide.");
+                return;
+            }
+            if (password.length < 6) {
+                alert("Le mot de passe doit contenir au moins 6 caractères.");
+                return;
+            }
+            if (password !== confirm) {
+                alert("Les mots de passe ne correspondent pas.");
+                return;
+            }
+
+            const myInviteCode = Math.random().toString(36).substring(2, 8);
+
+            // --- BONUS RESTÉ À 2500 FC ---
+            const userData = {
+                phone: fullPhone,
+                password: password,
+                inviteCode: myInviteCode,
+                referredBy: invite,
+                balance: 2500, 
+                date: new Date().toISOString()
+            };
+
+            try {
+                const checkResponse = await fetch(`${dbUrl}.json`);
+                const users = await checkResponse.json();
+                if (users) {
+                    for (let id in users) {
+                        if (users[id].phone === fullPhone) {
+                            alert("Ce numéro est déjà utilisé.");
+                            return;
+                        }
+                    }
+                }
+
+                await fetch(`${dbUrl}.json`, {
+                    method: 'POST',
+                    body: JSON.stringify(userData)
+                });
+
+                localStorage.setItem('userPhone', fullPhone);
+                alert("Compte créé avec succès ! Bonus de 2500 FC offert.");
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                alert("Erreur lors de l'inscription.");
+            }
+        });
+    </script>
+</body>
+</html>
