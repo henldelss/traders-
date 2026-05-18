@@ -76,21 +76,12 @@
             btn.disabled = true;
 
             try {
-                const response = await fetch(`${dbUrl}.json`);
-                const users = await response.json();
-                
-                let userFound = null;
+                // MODIFICATION ICI : On va directement chercher la clé correspondant au numéro de téléphone
+                const response = await fetch(`${dbUrl}/${fullPhone}.json`);
+                const userFound = await response.json();
 
-                if (users) {
-                    for (let id in users) {
-                        if (users[id].phone === fullPhone || users[id].phone === phoneInput) {
-                            userFound = users[id];
-                            break;
-                        }
-                    }
-                }
-
-                if (userFound) {
+                if (userFound !== null) {
+                    // Le numéro existe, on vérifie le mot de passe
                     if (userFound.password === passwordInput) {
                         localStorage.setItem('userPhone', fullPhone);
                         localStorage.setItem('isLoggedIn', 'true');
@@ -101,11 +92,40 @@
                         btn.disabled = false;
                     }
                 } else {
+                    // Si le numéro n'existe pas en clé directe, on fait une vérification de secours sur l'ancienne méthode (au cas où il reste des vieux comptes créés avec POST)
+                    const backResponse = await fetch(`${dbUrl}.json`);
+                    const allUsers = await backResponse.json();
+                    let oldUser = null;
+
+                    if (allUsers) {
+                        for (let id in allUsers) {
+                            if (allUsers[id].phone === fullPhone || allUsers[id].phone === phoneInput) {
+                                oldUser = allUsers[id];
+                                break;
+                            }
+                        }
+                    }
+
+                    if (oldUser) {
+                        if (oldUser.password === passwordInput) {
+                            localStorage.setItem('userPhone', fullPhone);
+                            localStorage.setItem('isLoggedIn', 'true');
+                            window.location.href = 'dashboard.html';
+                            return;
+                        } else {
+                            alert("Mot de passe incorrect.");
+                            btn.innerText = "Se connecter";
+                            btn.disabled = false;
+                            return;
+                        }
+                    }
+
                     alert("Numéro non inscrit.");
                     btn.innerText = "Se connecter";
                     btn.disabled = false;
                 }
             } catch (error) {
+                console.error(error);
                 alert("Erreur de connexion.");
                 btn.innerText = "Se connecter";
                 btn.disabled = false;
