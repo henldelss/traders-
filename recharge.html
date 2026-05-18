@@ -80,9 +80,9 @@
 
         <div class="section-title">2. Choisissez votre réseau</div>
         <div class="network-grid">
-            <div class="network-option" onclick="selectNetwork('Orange', '+243802667704', this)">Orange</div>
+            <div class="network-option" onclick="selectNetwork('Orange', '+243852771755', this)">Orange</div>
             <div class="network-option" onclick="selectNetwork('Airtel', '+243998566330', this)">Airtel</div>
-            <div class="network-option" onclick="selectNetwork('M-PESA', '+243810293226', this)">M-PESA</div>
+            <div class="network-option" onclick="selectNetwork('M-PESA', '+243813944647', this)">M-PESA</div>
         </div>
 
         <div id="agentBox" class="agent-display">
@@ -95,7 +95,7 @@
             <div class="section-title" style="margin-top:0; border:none; padding:0;">3. Détails du transfert</div>
             <div class="input-group">
                 <label>Numéro expéditeur (+243...)</label>
-                <input type="tel" id="senderPhone" placeholder="Ex: 0891234567">
+                <input type="tel" id="senderPhone" placeholder="Ex: 0895517195">
             </div>
             <div class="input-group">
                 <label>ID de la transaction (TID)</label>
@@ -107,8 +107,8 @@
     </div>
 
     <script>
-        // URL DB mise à jour pour First Traders
-        const dbUrl = "https://first-traders-default-rtdb.firebaseio.com/recharges_en_attente";
+        // URL DB mise à jour vers ton Firebase réel
+        const dbUrl = "https://canal-e4274-default-rtdb.firebaseio.com/recharges_en_attente";
         const userPhone = localStorage.getItem('userPhone');
         
         let selectedAmount = 0;
@@ -136,13 +136,11 @@
 
         function copyNumber() {
             const num = document.getElementById('agentNum').innerText;
-            const tempInput = document.createElement("input");
-            tempInput.value = num;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand("copy");
-            document.body.removeChild(tempInput);
-            alert("Numéro " + num + " copié ! Effectuez le transfert puis remplissez le formulaire.");
+            navigator.clipboard.writeText(num).then(() => {
+                alert("Numéro " + num + " copié ! Effectuez le transfert puis remplissez le formulaire.");
+            }).catch(err => {
+                console.error("Erreur de copie : ", err);
+            });
         }
 
         async function submitRecharge() {
