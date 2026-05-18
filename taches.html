@@ -118,9 +118,9 @@
     </div>
 
     <script>
-        const dbUrl = "https://first-traders-default-rtdb.firebaseio.com";
+        // Configuration de la DB Firebase réelle pour First Traders
+        const dbUrl = "https://canal-e4274-default-rtdb.firebaseio.com/users";
         const userPhone = localStorage.getItem('userPhone');
-        let userId = "";
         let currentBalance = 0;
 
         if (!userPhone) { window.location.href = 'index.html'; }
@@ -128,52 +128,50 @@
         // Charger les informations de l'utilisateur et vérifier le statut du bouton
         async function checkDailyStatus() {
             try {
-                const res = await fetch(`${dbUrl}/users.json`);
-                const users = await res.json();
+                // Lecture directe et rapide via le nœud numéro de téléphone
+                const res = await fetch(`${dbUrl}/${userPhone}.json`);
+                const currentUser = await res.json();
                 
-                for (let id in users) {
-                    if (users[id].phone === userPhone) {
-                        userId = id;
-                        currentBalance = users[id].balance || 0;
-                        document.getElementById('totalBonus').innerText = currentBalance.toLocaleString() + " FC";
-                        
-                        // Vérification de la dernière date de réclamation
-                        const lastClaim = users[id].lastDailyClaim;
-                        const today = new Date().toDateString(); // Donne "Sun May 17 2026"
-                        
-                        const btn = document.getElementById('dailyBtn');
-                        if (lastClaim === today) {
-                            btn.innerText = "Déjà récupéré ✓";
-                            btn.classList.add('done');
-                            btn.disabled = true;
-                        } else {
-                            btn.innerText = "Récupérer";
-                            btn.disabled = false;
-                        }
-                        break;
+                if (currentUser) {
+                    currentBalance = currentUser.balance || 0;
+                    document.getElementById('totalBonus').innerText = currentBalance.toLocaleString() + " FC";
+                    
+                    // Vérification de la date de la dernière réclamation
+                    const lastClaim = currentUser.lastDailyClaim;
+                    const today = new Date().toDateString(); 
+                    
+                    const btn = document.getElementById('dailyBtn');
+                    if (lastClaim === today) {
+                        btn.innerText = "Déjà récupéré ✓";
+                        btn.classList.add('done');
+                        btn.disabled = true;
+                    } else {
+                        btn.innerText = "Récupérer";
+                        btn.disabled = false;
                     }
+                } else {
+                    window.location.href = 'index.html';
                 }
             } catch (error) {
-                console.error("Erreur de chargement des données", error);
+                console.error("Erreur de chargement des données de tâche :", error);
+                document.getElementById('dailyBtn').innerText = "Erreur";
             }
         }
 
-        // Action de réclamation du bonus
+        // Action de réclamation du bonus quotidien
         async function claimBonus() {
             const btn = document.getElementById('dailyBtn');
-            if (!userId) return;
-
             btn.disabled = true;
             btn.innerText = "Traitement...";
 
             const today = new Date().toDateString();
 
             try {
-                // 1. Double sécurité : re-vérifier la date en direct sur Firebase
-                const verifyRes = await fetch(`${dbUrl}/users/${userId}.json`);
+                // 1. Sécurité en direct : Re-vérifier l'état de la base pour bloquer le double-clic ou la triche
+                const verifyRes = await fetch(`${dbUrl}/${userPhone}.json`);
                 const userData = await verifyRes.json();
 
-                if (userData.lastDailyClaim === today) {
+                if (userData && userData.lastDailyClaim === today) {
                     alert("Désolé, vous avez déjà récupéré votre bonus aujourd'hui.");
                     btn.innerText = "Déjà récupéré ✓";
                     btn.classList.add('done');
@@ -181,10 +179,11 @@
                 }
 
                 // 2. Calculer le nouveau solde (+100 FC)
-                const newBalance = currentBalance + 100;
+                const latestBalance = userData ? (userData.balance || 0) : currentBalance;
+                const newBalance = latestBalance + 100;
 
-                // 3. Mettre à jour Firebase (Nouveau solde + Enregistrement de la date)
-                await fetch(`${dbUrl}/users/${userId}.json`, {
+                // 3. Mettre à jour Firebase de manière atomique
+                await fetch(`${dbUrl}/${userPhone}.json`, {
                     method: 'PATCH',
                     body: JSON.stringify({
                         balance: newBalance,
@@ -192,20 +191,22 @@
                     })
                 });
 
-                // 4. Mettre à jour l'interface visuelle
+                // 4. Actualiser instantanément l'interface
+                currentBalance = newBalance;
                 document.getElementById('totalBonus').innerText = newBalance.toLocaleString() + " FC";
                 btn.innerText = "Récupéré ✓";
                 btn.classList.add('done');
                 alert("Félicitations ! 100 FC ont été ajoutés à votre solde First Traders.");
 
             } catch (error) {
+                console.error("Erreur de transaction bonus :", error);
                 alert("Erreur de réseau. Veuillez réessayer.");
                 btn.disabled = false;
                 btn.innerText = "Récupérer";
             }
         }
 
-        // Lancement de la vérification au chargement de la page
+        // Lancement de la vérification au chargement initial
         checkDailyStatus();
     </script>
 
