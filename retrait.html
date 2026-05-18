@@ -103,24 +103,27 @@
     </div>
 
     <script>
-        // URL de la base de données mise à jour pour First Traders
-        const dbUrl = "https://first-traders-default-rtdb.firebaseio.com";
+        // Configuration de la base de données réelle pour First Traders
+        const dbUrl = "https://canal-e4274-default-rtdb.firebaseio.com";
         const userPhone = localStorage.getItem('userPhone');
         let currentBalance = 0;
-        let userId = "";
 
         if (!userPhone) { window.location.href = 'index.html'; }
 
         async function loadUserData() {
-            const res = await fetch(`${dbUrl}/users.json`);
-            const users = await res.json();
-            for (let id in users) {
-                if (users[id].phone === userPhone) {
-                    userId = id;
-                    currentBalance = users[id].balance || 0;
+            try {
+                // Lecture directe de l'utilisateur connecté
+                const res = await fetch(`${dbUrl}/users/${userPhone}.json`);
+                const user = await res.json();
+                
+                if (user) {
+                    currentBalance = user.balance || 0;
                     document.getElementById('displayBalance').innerText = currentBalance.toLocaleString() + " FC";
-                    break;
+                } else {
+                    window.location.href = 'index.html';
                 }
+            } catch (error) {
+                console.error("Erreur de récupération du solde :", error);
             }
         }
 
@@ -137,21 +140,27 @@
             const receiver = document.getElementById('receiverPhone').value.trim();
             const btn = document.getElementById('withdrawBtn');
 
-            // SÉCURITÉ : Vérification stricte si l'utilisateur possède au moins un produit acheté
-            const prodRes = await fetch(`${dbUrl}/purchases/${userId}.json`);
-            const hasVIP = await prodRes.json();
-            if (!hasVIP) {
-                document.getElementById('productError').style.display = 'block';
-                alert("Sécurité : Accès refusé. Vous devez détenir un investissement VIP actif pour effectuer des retraits.");
+            // SÉCURITÉ : Vérification directe si l'utilisateur possède au moins un produit loué
+            try {
+                const prodRes = await fetch(`${dbUrl}/purchases/${userPhone}.json`);
+                const hasVIP = await prodRes.json();
+                
+                if (!hasVIP || Object.keys(hasVIP).length === 0) {
+                    document.getElementById('productError').style.display = 'block';
+                    alert("Sécurité : Accès refusé. Vous devez détenir un investissement VIP actif pour effectuer des retraits.");
+                    return;
+                }
+            } catch (error) {
+                alert("Erreur lors de la vérification de sécurité. Veuillez réessayer.");
                 return;
             }
 
-            // Validation de base
+            // Validations des données saisies
             if (isNaN(amount) || amount < 2500) { alert("Minimum de retrait : 2,500 FC"); return; }
             if (amount > currentBalance) { alert("Solde insuffisant."); return; }
             if (receiver.length < 9) { alert("Numéro de réception invalide."); return; }
 
-            // Limite d'une transaction par jour
+            // Limite d'une transaction par 24h
             const lastWithdraw = localStorage.getItem('lastWithdrawDate');
             const today = new Date().toDateString();
             if (lastWithdraw === today) {
@@ -163,23 +172,24 @@
             btn.innerText = "Traitement...";
 
             try {
-                // Déduire le solde
+                // Déduire le montant du solde de l'utilisateur
                 const newBalance = currentBalance - amount;
-                await fetch(`${dbUrl}/users/${userId}.json`, {
+                await fetch(`${dbUrl}/users/${userPhone}.json`, {
                     method: 'PATCH',
                     body: JSON.stringify({ balance: newBalance })
                 });
 
-                // Enregistrer la demande dans l'arborescence
+                // Enregistrer la demande dans la branche unifiée pour l'historique
                 const request = {
-                    user: userPhone,
+                    userAccount: userPhone,
                     amount: amount,
-                    netAmount: amount * 0.80, 
-                    receiver: receiver,
+                    netAmount: Math.floor(amount * 0.80), 
+                    receiverPhone: receiver,
                     date: new Date().toLocaleString(),
-                    status: "En attente"
+                    status: "en_attente" // Doit correspondre à la classe CSS du statut
                 };
-                await fetch(`${dbUrl}/retraits_demandes.json`, {
+
+                await fetch(`${dbUrl}/retraits.json`, {
                     method: 'POST',
                     body: JSON.stringify(request)
                 });
@@ -195,6 +205,7 @@
             }
         }
 
+        // Chargement initial des informations utilisateur
         loadUserData();
     </script>
 </body>
