@@ -251,27 +251,18 @@
     </nav>
 
     <script>
-        // URL DB mise à jour pour First Traders
-        const dbUrl = "https://first-traders-default-rtdb.firebaseio.com/users";
+        // Ta vraie URL Firebase Realtime Database
+        const mainBaseUrl = "https://canal-e4274-default-rtdb.firebaseio.com";
+        const dbUrl = `${mainBaseUrl}/users`;
         const userPhone = localStorage.getItem('userPhone');
 
         if (!userPhone) { window.location.href = 'index.html'; }
 
         async function buyProduct(name, price, daily) {
             try {
-                const response = await fetch(`${dbUrl}.json`);
-                const users = await response.json();
-                
-                let userId = null;
-                let currentUser = null;
-
-                for (let id in users) {
-                    if (users[id].phone === userPhone) {
-                        userId = id;
-                        currentUser = users[id];
-                        break;
-                    }
-                }
+                // Lecture directe de l'utilisateur connecté via sa clé numéro de téléphone
+                const response = await fetch(`${dbUrl}/${userPhone}.json`);
+                const currentUser = await response.json();
 
                 if (currentUser) {
                     const currentBalance = currentUser.balance || 0;
@@ -294,13 +285,14 @@
                             purchaseDate: new Date().toISOString()
                         };
 
-                        await fetch(`${dbUrl}/${userId}.json`, {
+                        // Mise à jour du solde utilisateur (PATCH direct sans boucle)
+                        await fetch(`${dbUrl}/${userPhone}.json`, {
                             method: 'PATCH',
                             body: JSON.stringify(updateData)
                         });
 
-                        // URL mise à jour également pour l'historique d'achat
-                        await fetch(`https://first-traders-default-rtdb.firebaseio.com/purchases/${userId}.json`, {
+                        // Sauvegarde de l'achat dans la branche purchases de l'utilisateur
+                        await fetch(`${mainBaseUrl}/purchases/${userPhone}.json`, {
                             method: 'POST',
                             body: JSON.stringify(purchaseInfo)
                         });
@@ -308,30 +300,24 @@
                         alert("Achat réussi ! Votre VIP est maintenant actif.");
                         location.reload();
                     }
+                } else {
+                    alert("Erreur de session. Veuillez vous reconnecter.");
                 }
             } catch (error) {
+                console.error(error);
                 alert("Erreur lors de la transaction. Vérifiez votre connexion.");
             }
         }
 
         async function loadCounters() {
             try {
-                const response = await fetch(`${dbUrl}.json`);
-                const users = await response.json();
-                let userId = null;
-                let currentUser = null;
+                // Chargement direct des données utilisateur pour afficher les revenus cumulés
+                const response = await fetch(`${dbUrl}/${userPhone}.json`);
+                const currentUser = await response.json();
 
-                for (let id in users) {
-                    if (users[id].phone === userPhone) {
-                        userId = id;
-                        currentUser = users[id];
-                        break;
-                    }
-                }
-
-                if (userId) {
-                    // URL mise à jour pour le compteur
-                    const prodRes = await fetch(`https://first-traders-default-rtdb.firebaseio.com/purchases/${userId}.json`);
+                if (currentUser) {
+                    // Chargement direct du nombre d'achats effectués
+                    const prodRes = await fetch(`${mainBaseUrl}/purchases/${userPhone}.json`);
                     const products = await prodRes.json();
                     const count = products ? Object.keys(products).length : 0;
                     
