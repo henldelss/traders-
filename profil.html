@@ -155,11 +155,12 @@
     </nav>
 
     <script>
-        // URL DB mise à jour pour First Traders
-        const dbUrl = "https://first-traders-default-rtdb.firebaseio.com/users";
+        // Configuration de l'URL Firebase réelle pour First Traders
+        const mainBaseUrl = "https://canal-e4274-default-rtdb.firebaseio.com";
+        const dbUrl = `${mainBaseUrl}/users`;
         const userPhone = localStorage.getItem('userPhone');
 
-        // Sécurité : redirection si non connecté
+        // Sécurité : redirection immédiate si non connecté
         if (!userPhone) {
             window.location.href = 'index.html';
         } else {
@@ -168,35 +169,28 @@
 
         async function loadProfileData() {
             try {
-                const response = await fetch(`${dbUrl}.json`);
-                const users = await response.json();
-                
-                let currentUser = null;
-                let userId = null;
-
-                for (let id in users) {
-                    if (users[id].phone === userPhone) {
-                        userId = id;
-                        currentUser = users[id];
-                        break;
-                    }
-                }
+                // Lecture directe et ultra rapide via la clé unique (numéro de téléphone)
+                const response = await fetch(`${dbUrl}/${userPhone}.json`);
+                const currentUser = await response.json();
 
                 if (currentUser) {
-                    // Mise à jour des textes
+                    // Mise à jour instantanée du solde et des revenus cumulés
                     document.getElementById('walletBalance').innerText = (currentUser.balance || 0).toLocaleString() + " FC";
                     document.getElementById('walletEarnings').innerText = (currentUser.earnings || 0).toLocaleString() + " FC";
                     
-                    // Déterminer le VIP en fonction des achats (Arborescence mise à jour également)
-                    const prodRes = await fetch(`https://first-traders-default-rtdb.firebaseio.com/purchases/${userId}.json`);
+                    // Détermination du niveau VIP en lisant directement dans la branche purchases de l'utilisateur
+                    const prodRes = await fetch(`${mainBaseUrl}/purchases/${userPhone}.json`);
                     const products = await prodRes.json();
+                    
                     if (products) {
                         const count = Object.keys(products).length;
                         document.getElementById('displayVIP').innerText = "VIP " + count;
+                    } else {
+                        document.getElementById('displayVIP').innerText = "VIP 0";
                     }
                 }
             } catch (error) {
-                console.error("Erreur de chargement du profil.");
+                console.error("Erreur lors de la récupération des données utilisateur :", error);
             }
         }
 
@@ -208,7 +202,7 @@
             }
         }
 
-        // Initialisation
+        // Chargement initial des informations du profil
         loadProfileData();
     </script>
 
